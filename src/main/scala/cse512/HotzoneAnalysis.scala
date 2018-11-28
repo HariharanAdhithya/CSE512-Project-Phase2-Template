@@ -29,9 +29,13 @@ object HotzoneAnalysis {
     val joinDf = spark.sql("select rectangle._c0 as rectangle, point._c5 as point from rectangle,point where ST_Contains(rectangle._c0,point._c5)")
     joinDf.createOrReplaceTempView("joinResult")
 
+    val aggreDF = joinDf.groupBy("rectangle").count().sort("rectangle")
+
+    aggreDF.createOrReplaceTempView("aggResult")
+
     // YOU NEED TO CHANGE THIS PART
 
-    return joinDf // YOU NEED TO CHANGE THIS PART
+    return aggreDF // YOU NEED TO CHANGE THIS PART
   }
 
 }
