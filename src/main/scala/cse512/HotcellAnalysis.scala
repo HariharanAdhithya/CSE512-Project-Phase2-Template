@@ -44,6 +44,24 @@ def runHotcellAnalysis(spark: SparkSession, pointPath: String): DataFrame =
 
   // YOU NEED TO CHANGE THIS PART
 
+  spark.udf.register("filter",(inputX: Int, inputY: Int, inputZ: Int)=> HotcellUtils.filterCoordinate(inputX, inputY, inputZ, minX.toInt, minY.toInt, minZ.toInt, maxX.toInt, maxY.toInt, maxZ.toInt))
+  pickupInfo.createOrReplaceTempView("nyctaxitrips")
+  pickupInfo = spark.sql("select * from nyctaxitrips where filter(nyctaxitrips.x,nyctaxitrips.y,nyctaxitrips.z)")
+
+  pickupInfo = pickupInfo.select(concat(pickupInfo.col("x"), lit(","), pickupInfo.col("y"),lit(","), pickupInfo.col("z")).alias("cellId"))
+  pickupInfo = pickupInfo.groupBy("cellId").agg(count("cellId").alias("hotness"))
+  pickupInfo.createOrReplaceTempView("nyctaxitrips")
+  pickupInfo.show()
+
+  val mean =  pickupInfo.agg(sum("hotness")).first.getLong(0).*(1.0)./(numCells)
+  val sd = scala.math.sqrt(pickupInfo.withColumn("hotness2", pow("hotness", 2)).agg(sum("hotness2")).first.getDouble(0)./(numCells).-(mean.*(mean)))
+  val pickupInfoMap = pickupInfo.collect().map(row => (row.getString(0),row.getLong(1))).toMap
+  spark.udf.register("Zscore",(cellId: String)=> HotcellUtils.calculateZScore(cellId, pickupInfoMap, mean, sd, minX.toInt, minY.toInt, minZ.toInt, maxX.toInt, maxY.toInt, maxZ.toInt, numCells.toInt))
+  pickupInfo = spark.sql("select nyctaxitrips.cellId,Zscore(nyctaxitrips.cellId) as zscore from nyctaxitrips")
+  pickupInfo = pickupInfo.sort(desc("zscore"))
+  pickupInfo.show()
+  pickupInfo = pickupInfo.selectExpr("split(cellId, ',')[0] as x","split(cellId, ',')[1] as y","split(cellId, ',')[2] as z")
+
   return pickupInfo // YOU NEED TO CHANGE THIS PART
 }
 }
