@@ -12,6 +12,14 @@ import scala.collection.mutable.ListBuffer
 object HotcellUtils {
   val coordinateStep = 0.01
 
+  def prunePoints(X: Int, Y: Int, Z :Int, minX: Int, maxX: Int, minY: Int, maxY:Int, minZ: Int, maxZ: Int ): Boolean =
+  {
+    if(X >= minX && X <= maxX && Y >= minY && Y <= maxY && Z >= minZ && Z <= maxZ)
+      return true
+    false
+
+  }
+
   def CalculateCoordinate(inputString: String, coordinateOffset: Int): Int =
   {
     // Configuration variable:
@@ -52,30 +60,26 @@ object HotcellUtils {
     return calendar.get(Calendar.DAY_OF_MONTH)
   }
 
-  // YOU NEED TO CHANGE THIS PART
-
-
-  def filterCoordinate(inputX: Int, inputY: Int, inputZ:Int, minX: Int, minY: Int, minZ: Int, maxX: Int, maxY:Int, maxZ: Int ): Boolean =
+  def getisOrd(coordinates: String, coordMap: Map[String, Long], mean: Double, deviation: Double, minX: Int, maxX: Int, minY: Int, maxY:Int, minZ: Int, maxZ: Int, numCells: Int): Double =
   {
-    if(inputX < minX || inputX > maxX) return false
-    if(inputY < minY || inputY > maxY) return false
-    if(inputZ < minZ || inputZ > maxZ) return false
-    true
-  }
+    var adjCells = new ListBuffer[Long]()
+    val x = coordinates.split(",")(0)
+    val y = coordinates.split(",")(1)
+    val z = coordinates.split(",")(2)
 
-  def calculateZScore(cellId: String, hotnessMap: Map[String, Long], mean: Double, sd: Double, minX: Int, minY: Int, minZ: Int, maxX: Int, maxY:Int, maxZ: Int, numCells: Int): Double =
-  {
-    var neighbours = new ListBuffer[Long]()
-    val x :: y :: z :: _ = cellId.split(",").toList
-    for(day <- z.toInt.-(1) to z.toInt.+(1))
-      for(lat <- x.toInt.-(1) to x.toInt.+(1))
-        for(long <- y.toInt.-(1) to y.toInt.+(1))
-          if(filterCoordinate(lat,long,day,minX,minY,minZ,maxX,maxY,maxZ))
-            if (hotnessMap.contains(lat.toString +','+ long.toString +','+ day.toString))
-              neighbours += hotnessMap(lat.toString +','+ long.toString +','+ day.toString)
-            else neighbours += 0
-    val neighbourscnt = neighbours.size
-    val zscore = neighbours.sum.-(mean.*(neighbourscnt))./(sd.*(scala.math.sqrt(neighbourscnt.*(numCells).-(neighbourscnt.*(neighbourscnt))./(numCells.-(1)))))
-    zscore
+    for(lat <- x.toInt.-(1) to x.toInt.+(1))
+      for(long <- y.toInt.-(1) to y.toInt.+(1))
+        for(dTime <- z.toInt.-(1) to z.toInt.+(1))
+          if(prunePoints(lat,long,dTime,minX,maxX,minY,maxY,minZ,maxZ))
+            if (coordMap.contains(lat.toString +','+ long.toString +','+ dTime.toString))
+              adjCells += coordMap(lat.toString +','+ long.toString +','+ dTime.toString)
+            else
+              adjCells += 0
+    val adjCount = adjCells.size
+    val numerator = adjCells.sum.-(mean.*(adjCount))
+    val denominator = deviation.*(scala.math.sqrt(adjCount.*(numCells).-(adjCount.*(adjCount))./(numCells.-(1))))
+    val getisOrd = numerator/denominator
+
+    getisOrd
   }
 }
